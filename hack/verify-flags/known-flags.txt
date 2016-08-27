@@ -252,6 +252,7 @@ junit-file-number
 k8s-bin-dir
 k8s-build-output
 keep-gogoproto
+kernel-support-propagation
 km-path
 kube-api-burst
 kube-api-content-type

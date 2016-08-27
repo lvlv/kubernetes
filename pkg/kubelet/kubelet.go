@@ -492,6 +492,7 @@ func NewMainKubelet(kubeCfg *componentconfig.KubeletConfiguration, kubeDeps *Kub
 		makeIPTablesUtilChains:       kubeCfg.MakeIPTablesUtilChains,
 		iptablesMasqueradeBit:        int(kubeCfg.IPTablesMasqueradeBit),
 		iptablesDropBit:              int(kubeCfg.IPTablesDropBit),
+		kernelSupportPropagation:     bool(kubeCfg.KernelSupportPropagation),
 	}
 
 	if klet.flannelExperimentalOverlay {
@@ -1041,6 +1042,9 @@ type Kubelet struct {
 
 	// The bit of the fwmark space to mark packets for dropping.
 	iptablesDropBit int
+
+	// Where local kernel supports propagation.
+	kernelSupportPropagation bool
 }
 
 // setupDataDirs creates:
@@ -1199,7 +1203,7 @@ func (kl *Kubelet) getActivePods() []*api.Pod {
 }
 
 // makeMounts determines the mount points for the given container.
-func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName, hostDomain, podIP string, podVolumes kubecontainer.VolumeMap) ([]kubecontainer.Mount, error) {
+func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName, hostDomain, podIP string, podVolumes kubecontainer.VolumeMap, kernelSupportPropagation bool) ([]kubecontainer.Mount, error) {
 	// Kubernetes only mounts on /etc/hosts if :
 	// - container does not use hostNetwork and
 	// - container is not an infrastructure(pause) container
@@ -1231,13 +1235,17 @@ func makeMounts(pod *api.Pod, podDir string, container *api.Container, hostName,
 		if mount.SubPath != "" {
 			hostPath = filepath.Join(hostPath, mount.SubPath)
 		}
+		var propagation string
+		if kernelSupportPropagation {
+			propagation = vol.Mounter.GetAttributes().Propagation
+		}
 		mounts = append(mounts, kubecontainer.Mount{
 			Name:           mount.Name,
 			ContainerPath:  mount.MountPath,
 			HostPath:       hostPath,
 			ReadOnly:       mount.ReadOnly,
 			SELinuxRelabel: relabelVolume,
-			Propagation:    vol.Mounter.GetAttributes().Propagation,
+			Propagation:    propagation,
 		})
 	}
 	if mountEtcHostsFile {
@@ -1384,7 +1392,7 @@ func (kl *Kubelet) GenerateRunContainerOptions(pod *api.Pod, container *api.Cont
 		}
 	}
 
-	opts.Mounts, err = makeMounts(pod, kl.getPodDir(pod.UID), container, hostname, hostDomainName, podIP, volumes)
+	opts.Mounts, err = makeMounts(pod, kl.getPodDir(pod.UID), container, hostname, hostDomainName, podIP, volumes, kl.kernelSupportPropagation)
 	if err != nil {
 		return nil, err
 	}

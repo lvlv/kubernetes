@@ -421,6 +421,8 @@ type KubeletConfiguration struct {
 	IPTablesDropBit int32 `json:"iptablesDropBit"`
 	// Whitelist of unsafe sysctls or sysctl patterns (ending in *).
 	AllowedUnsafeSysctls []string `json:"experimentalAllowedUnsafeSysctls,omitempty"`
+	// Specify whether kernel supports propagation, if false, propagation in docker volume will never get set.
+	KernelSupportPropagation bool `json:"kernelSupportPropagation"`
 }
 
 type KubeSchedulerConfiguration struct {
